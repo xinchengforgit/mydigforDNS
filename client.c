@@ -109,13 +109,53 @@ int main(int argc, char *argv[])
     }
     p = buf2 + len - 4;
     printf("%s ==> %u.%u.%u.%u\n", argv[1], (unsigned char)*p, (unsigned char)*(p + 1), (unsigned char)*(p + 2), (unsigned char)*(p + 3));
+    //先获取到IP地址,在进行NS查询
     dnsqer->classes = htons(1); //1表示A类型
-    dnsqer->type = htons(2);    //再进行查询NS地址
+    dnsqer->type = htons(2);    //再进行查询NS
     len = sendto(clifd, buf, sizeof(DNS_HDR) + sizeof(DNS_QER) + strlen(argv[1]) + 2, 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
     i = sizeof(struct sockaddr_in);
     len = recvfrom(clifd, buf2, BUF_SIZE, 0, (struct sockaddr *)&servaddr, &i);
-    p = buf2 + len1 + 12;
+    if (len < 0)
+    {
+        printf("recverror");
+    }
+    p = buf2 + len1 + 11; //直接从ANSWERS的length 部分开始
     printf("Alias ==> ");
+    // int len3 = (unsigned char)*p;
+    // p++;
+    // while (p < buf2 + len1 + 11 + len3)
+    // {
+    //     if ((unsigned char)*p < 'a')
+    //     {
+    //         printf(".");
+    //         int num = (unsigned char)*p;
+    //         for (int j = 1; j <= num; j++)
+    //         {
+    //             if (*p >= 'a' && *p <= 'z')
+    //                 printf("%c", *p);
+    //             else if ((unsigned char)*(p - 1) == 0xc0)
+    //             {
+    //                 //表示现在要输出压缩的字段
+    //                 int num2 = (unsigned char)*(p - 1);
+    //                 char *temp = buf2 + num2;
+    //                 while (*temp)
+    //                 {
+    //                     if (*temp <= 'a' && *temp >= 'z')
+    //                     {
+    //                         printf("%c", *temp);
+    //                         temp++;
+    //                     }
+    //                     else
+    //                     {
+    //                         printf(".");
+    //                         temp++;
+    //                     }
+    //                 }
+    //             }
+    //             p++;
+    //         }
+    //     }
+    // } //现在可以把name字段输出完了应该
     while (*p)
     {
 
@@ -141,6 +181,7 @@ int main(int argc, char *argv[])
                     temp++;
                 }
             }
+            break;
         }
         else
         {
@@ -151,9 +192,10 @@ int main(int argc, char *argv[])
             ++p;
         }
     }
+    printf("\nAuthoritive Servers====>\n");
     printf("\n");
-    printf("NS ==> ");
-    p += 11; //通过数数数出来的加减
+    printf("NAME ==> ");
+    //通过数数数出来的加减
     while (*p)
     {
 
@@ -173,12 +215,88 @@ int main(int argc, char *argv[])
                     printf("%c", *temp);
                     temp++;
                 }
+                else if ((unsigned char)*temp == 0xc0)
+                {
+                    temp++;
+                    char *temp2 = buf2 + *temp++;
+                    while (*temp2)
+                    {
+                        if ('a' <= *temp2 && *temp2 <= 'z')
+                        {
+                            printf("%c", *temp2);
+                            temp2++;
+                        }
+                        else
+                        {
+                            printf(".");
+                            temp2++;
+                        }
+                    }
+                    break;
+                }
                 else
                 {
                     printf(".");
                     temp++;
                 }
             }
+            break;
+        }
+        else
+        {
+            // printf(".");
+            // p++;
+            printf(".");
+
+            ++p;
+        }
+    }
+    p += 11;
+    printf("\nPrimary name server=====>");
+    while (*p)
+    {
+        if ('a' <= *p && *p <= 'z')
+        {
+            printf("%c", *p);
+            p++;
+        }
+        else if ((unsigned char)*p == 0xc0)
+        {
+            p++;
+            char *temp = buf2 + *p++;
+            while (*temp)
+            {
+                if ('a' <= *temp && *temp <= 'z')
+                {
+                    printf("%c", *temp);
+                    temp++;
+                }
+                else if ((unsigned char)*temp == 0xc0)
+                {
+                    temp++;
+                    char *temp2 = buf2 + *temp++;
+                    while (*temp2)
+                    {
+                        if ('a' <= *temp2 && *temp2 <= 'z')
+                        {
+                            printf("%c", *temp2);
+                            temp2++;
+                        }
+                        else
+                        {
+                            printf(".");
+                            temp2++;
+                        }
+                    }
+                    break;
+                }
+                else
+                {
+                    printf(".");
+                    temp++;
+                }
+            }
+            break;
         }
         else
         {
