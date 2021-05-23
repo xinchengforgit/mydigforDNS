@@ -28,7 +28,7 @@ typedef struct _DNS_QER
 } DNS_QER;
 int main(int argc, char *argv[])
 {
-    char def[] = "202.114.0.242";
+    char def[] = "192.168.1.1"; //本地的DNS服务器,从/etc/resolv.conf 获取
     if (argc == 3)
     {
         if (argv[2][0] = '@')
@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
             strcpy(def, argv[2] + 1);
             printf("%s", def);
         }
-        //如果有 @那么修改默认的查询ip地址
+        //如果有 @那么修改默认的查询DNS服务器
     }
     int servfd, clifd, len = 0, i; //待看
     struct sockaddr_in servaddr;
@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
     //ok
     //理一个思维模式,先把这个的bug发现
     memset(buf, 0, BUF_SIZE);
-    dnshdr->ID = (uint16_t)1;      //为什么要这样呢因为默认的1并不是2字节
+    dnshdr->ID = (uint16_t)1;      //默认的1并不是2字节
     dnshdr->Flags = htons(0x0100); //没啥好说的就是00000001 00000000,结合dns报文容易得知是递归查询
     dnshdr->Questions = htons(1);  //表示一个询问
     dnshdr->Answers = 0;
@@ -91,7 +91,6 @@ int main(int argc, char *argv[])
     dnsqer->type = htons(1);    //查询IP,如果是NS的话,type的值为htons(2)
     len = sendto(clifd, buf, sizeof(DNS_HDR) + sizeof(DNS_QER) + strlen(argv[1]) + 2, 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
     int len1 = len;
-    printf("hello\n");
     i = sizeof(struct sockaddr_in);
     len = recvfrom(clifd, buf2, BUF_SIZE, 0, (struct sockaddr *)&servaddr, &i); //recvfrom可以返回获取报文的字节长度
     if (len < 0)
@@ -110,8 +109,8 @@ int main(int argc, char *argv[])
     p = buf2 + len - 4;
     printf("%s ==> %u.%u.%u.%u\n", argv[1], (unsigned char)*p, (unsigned char)*(p + 1), (unsigned char)*(p + 2), (unsigned char)*(p + 3));
     //先获取到IP地址,在进行NS查询
-    dnsqer->classes = htons(1); //1表示A类型
-    dnsqer->type = htons(2);    //再进行查询NS
+    dnsqer->classes = htons(1); //1表示类型
+    dnsqer->type = htons(2);    //再进行查询NS,type==2就是NS查询
     len = sendto(clifd, buf, sizeof(DNS_HDR) + sizeof(DNS_QER) + strlen(argv[1]) + 2, 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
     i = sizeof(struct sockaddr_in);
     len = recvfrom(clifd, buf2, BUF_SIZE, 0, (struct sockaddr *)&servaddr, &i);
@@ -119,7 +118,7 @@ int main(int argc, char *argv[])
     {
         printf("recverror");
     }
-    p = buf2 + len1 + 11; //直接从ANSWERS的length 部分开始
+    p = buf2 + len1 + 11; //直接从ANSWERS的length部分开始
     printf("Alias ==> ");
     // int len3 = (unsigned char)*p;
     // p++;
@@ -307,6 +306,7 @@ int main(int argc, char *argv[])
             ++p;
         }
     }
+    printf("\n");
     //读取报文时如果时0xc0那么就是就压缩内容
     close(clifd);
 }
